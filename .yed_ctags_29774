@@ -1,0 +1,20 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+Self	fstyle.c	/^static yed_plugin *Self;$/;"	v	file:
+__SCOMP	fstyle.c	/^            #define __SCOMP(/;"	d	file:
+__SCOMP	fstyle.c	/^            #undef __SCOMP$/;"	d	file:
+ctags: Warning: cannot open source file "test.fstyle" : No such file or directory
+fstyle	fstyle.c	/^static void fstyle(int n_args, char **args) {$/;"	f	file:
+known_active	fstyle.c	/^static yed_attrs known_active;$/;"	v	file:
+maybe_change_ft	fstyle.c	/^static void maybe_change_ft(yed_buffer *buff) {$/;"	f	file:
+maybe_change_ft_event	fstyle.c	/^static void maybe_change_ft_event(yed_event *event) {$/;"	f	file:
+parse_attr_line	fstyle.c	/^static yed_attrs parse_attr_line(char *line, int *scomp) {$/;"	f	file:
+syntax_fstyle_line_handler	fstyle.c	/^static void syntax_fstyle_line_handler(yed_event *event) {$/;"	f	file:
+syntax_fstyle_mod_handler	fstyle.c	/^static void syntax_fstyle_mod_handler(yed_event *event) {$/;"	f	file:
+syntax_fstyle_row_handler	fstyle.c	/^static void syntax_fstyle_row_handler(yed_event *event) {$/;"	f	file:
+unload	fstyle.c	/^static void unload(yed_plugin *self) {}$/;"	f	file:
+yed_plugin_boot	fstyle.c	/^int yed_plugin_boot(yed_plugin *self) {$/;"	f
