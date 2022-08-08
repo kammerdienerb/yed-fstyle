@@ -5,6 +5,7 @@ static yed_plugin *Self;
 static void unload(yed_plugin *self);
 
 static void fstyle(int n_args, char **args);
+static void fstyle_export(int n_args, char **args);
 
 static void maybe_change_ft(yed_buffer *buff);
 static void maybe_change_ft_event(yed_event *event);
@@ -33,7 +34,8 @@ int yed_plugin_boot(yed_plugin *self) {
         return 1;
     }
 
-    yed_plugin_set_command(self, "fstyle", fstyle);
+    yed_plugin_set_command(self, "fstyle",        fstyle);
+    yed_plugin_set_command(self, "fstyle-export", fstyle_export);
 
     buff_post_load_handler.kind = EVENT_BUFFER_POST_LOAD;
     buff_post_load_handler.fn   = maybe_change_ft_event;
@@ -128,6 +130,104 @@ static void fstyle(int n_args, char **args) {
     free((void*)base);
 
     fclose(f);
+}
+
+static void flags_str(int flags, char *buff) {
+    buff[0] = 0;
+
+    strcat(buff, "0");
+    if (flags & ATTR_NORMAL)      { strcat(buff, " | ATTR_NORMAL");      }
+    if (flags & ATTR_NORMAL)      { strcat(buff, " | ATTR_NORMAL");      }
+    if (flags & ATTR_INVERSE)     { strcat(buff, " | ATTR_INVERSE");     }
+    if (flags & ATTR_BOLD)        { strcat(buff, " | ATTR_BOLD");        }
+    if (flags & ATTR_UNDERLINE)   { strcat(buff, " | ATTR_UNDERLINE");   }
+    if (flags & ATTR_16_LIGHT_FG) { strcat(buff, " | ATTR_16_LIGHT_FG"); }
+    if (flags & ATTR_16_LIGHT_BG) { strcat(buff, " | ATTR_16_LIGHT_BG"); }
+    if (flags & ATTR_16)          { strcat(buff, " | ATTR_16");          }
+    if (flags & ATTR_256)         { strcat(buff, " | ATTR_256");         }
+    if (flags & ATTR_RGB)         { strcat(buff, " | ATTR_RGB");         }
+}
+
+static void put_attrs(FILE *f, const char *scomp_name, yed_attrs attrs) {
+    char buff[1024];
+
+    flags_str(attrs.flags, buff);
+    fprintf(f, "    s.%s.flags = %s;\n", scomp_name, buff);
+    fprintf(f, "    s.%s.fg    = 0x%x;\n", scomp_name, attrs.fg);
+    fprintf(f, "    s.%s.bg    = 0x%x;\n", scomp_name, attrs.bg);
+    fprintf(f, "\n");
+}
+
+static void fstyle_export(int n_args, char **args) {
+    yed_buffer *buffer;
+    char       *name;
+    char        buff[4096];
+    FILE       *f;
+    yed_line   *line;
+    yed_attrs   attrs;
+    int         scomp;
+
+    if (n_args != 0) {
+        yed_cerr("expected 0, but got %d", n_args);
+        return;
+    }
+
+    if (ys->active_frame == NULL) {
+        yed_cerr("no active frame");
+        return;
+    }
+    if (ys->active_frame->buffer == NULL) {
+        yed_cerr("active frame has no buffer");
+        return;
+    }
+
+    if (ys->active_frame->buffer->ft != yed_get_ft("fstyle")) {
+        yed_cerr("buffer's ft is not 'fstyle'");
+        return;
+    }
+
+    buffer = ys->active_frame->buffer;
+
+    name = path_without_ext(buffer->name);
+    snprintf(buff, sizeof(buff), "%s.c", name);
+
+    f = fopen(buff, "w");
+    if (f == NULL) {
+        yed_cerr("error opening '%s' for writing", buff);
+        goto out_free;
+    }
+
+    fprintf(f, "#include <yed/plugin.h>\n");
+    fprintf(f, "\n");
+    fprintf(f, "PACKABLE_STYLE(%s) {\n", name);
+    fprintf(f, "    yed_style s;\n");
+    fprintf(f, "\n");
+    fprintf(f, "    memset(&s, 0, sizeof(s));\n");
+
+    bucket_array_traverse(buffer->lines, line) {
+        array_zero_term(line->chars);
+        scomp = -1;
+
+        attrs = parse_attr_line(line->chars.data, &scomp);
+        if (scomp == -1) { continue; }
+
+        switch (scomp) {
+            #define __SCOMP(comp) case STYLE_##comp: put_attrs(f, #comp, attrs); break;
+            __STYLE_COMPONENTS
+            #undef __SCOMP
+        }
+    }
+
+    fprintf(f, "    yed_plugin_set_style(self, \"%s\", &s);\n", name);
+    fprintf(f, "    return 0;\n");
+    fprintf(f, "}\n");
+
+    fclose(f);
+
+    yed_cprint("exported to '%s'", buff);
+
+out_free:;
+    free(name);
 }
 
 static void maybe_change_ft(yed_buffer *buff) {
