@@ -188,7 +188,7 @@ static void fstyle_export(int n_args, char **args) {
 
     buffer = ys->active_frame->buffer;
 
-    name = path_without_ext(buffer->name);
+    name = path_without_ext(get_path_basename(buffer->name));
     snprintf(buff, sizeof(buff), "%s.c", name);
 
     f = fopen(buff, "w");
