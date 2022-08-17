@@ -136,25 +136,31 @@ static void flags_str(int flags, char *buff) {
     buff[0] = 0;
 
     strcat(buff, "0");
-    if (flags & ATTR_NORMAL)      { strcat(buff, " | ATTR_NORMAL");      }
-    if (flags & ATTR_NORMAL)      { strcat(buff, " | ATTR_NORMAL");      }
     if (flags & ATTR_INVERSE)     { strcat(buff, " | ATTR_INVERSE");     }
     if (flags & ATTR_BOLD)        { strcat(buff, " | ATTR_BOLD");        }
     if (flags & ATTR_UNDERLINE)   { strcat(buff, " | ATTR_UNDERLINE");   }
     if (flags & ATTR_16_LIGHT_FG) { strcat(buff, " | ATTR_16_LIGHT_FG"); }
     if (flags & ATTR_16_LIGHT_BG) { strcat(buff, " | ATTR_16_LIGHT_BG"); }
-    if (flags & ATTR_16)          { strcat(buff, " | ATTR_16");          }
-    if (flags & ATTR_256)         { strcat(buff, " | ATTR_256");         }
-    if (flags & ATTR_RGB)         { strcat(buff, " | ATTR_RGB");         }
 }
 
 static void put_attrs(FILE *f, const char *scomp_name, yed_attrs attrs) {
-    char buff[1024];
+    int  is_16;
+    char buff[512];
 
-    flags_str(attrs.flags, buff);
-    fprintf(f, "    s.%s.flags = %s;\n", scomp_name, buff);
-    fprintf(f, "    s.%s.fg    = 0x%x;\n", scomp_name, attrs.fg);
-    fprintf(f, "    s.%s.bg    = 0x%x;\n", scomp_name, attrs.bg);
+    if (ATTR_FG_KIND(attrs.flags) != ATTR_KIND_NONE) {
+        is_16 = ATTR_FG_KIND(attrs.flags) == ATTR_KIND_16;
+        fprintf(f, "    ATTR_SET_FG_KIND(s.%s.flags, %s);\n", scomp_name, is_16 ? "ATTR_KIND_16" : "attr_kind");
+        fprintf(f, "    s.%s.fg     = %s0x%x%s;\n", scomp_name, is_16 ? "" : "MAYBE_CONVERT(", attrs.fg, is_16 ? "" : ")");
+    }
+    if (ATTR_BG_KIND(attrs.flags) != ATTR_KIND_NONE) {
+        is_16 = ATTR_BG_KIND(attrs.flags) == ATTR_KIND_16;
+        fprintf(f, "    ATTR_SET_BG_KIND(s.%s.flags, %s);\n", scomp_name, is_16 ? "ATTR_KIND_16" : "attr_kind");
+        fprintf(f, "    s.%s.bg     = %s0x%x%s;\n", scomp_name, is_16 ? "" : "MAYBE_CONVERT(", attrs.bg, is_16 ? "" : ")");
+    }
+    if (attrs.flags >> 4) {
+        flags_str(attrs.flags, buff);
+        fprintf(f, "    s.%s.flags |= %s;\n", scomp_name, buff);
+    }
     fprintf(f, "\n");
 }
 
@@ -199,8 +205,17 @@ static void fstyle_export(int n_args, char **args) {
 
     fprintf(f, "#include <yed/plugin.h>\n");
     fprintf(f, "\n");
+    fprintf(f, "#define MAYBE_CONVERT(rgb) (tc ? (rgb) : rgb_to_256(rgb))\n");
+    fprintf(f, "\n");
     fprintf(f, "PACKABLE_STYLE(%s) {\n", name);
     fprintf(f, "    yed_style s;\n");
+    fprintf(f, "    int       tc,\n");
+    fprintf(f, "              attr_kind;\n");
+    fprintf(f, "\n");
+    fprintf(f, "    YED_PLUG_VERSION_CHECK();\n");
+    fprintf(f, "\n");
+    fprintf(f, "    tc        = !!yed_get_var(\"truecolor\");\n");
+    fprintf(f, "    attr_kind = tc ? ATTR_KIND_RGB : ATTR_KIND_256;\n");
     fprintf(f, "\n");
     fprintf(f, "    memset(&s, 0, sizeof(s));\n");
 
