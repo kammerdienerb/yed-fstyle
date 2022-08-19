@@ -1,4 +1,0 @@
-set builder-build-command 'bash build.sh'
-plugin-unload fstyle
-plugins-add-dir .
-plugin-load   fstyle

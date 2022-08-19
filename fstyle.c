@@ -292,7 +292,7 @@ static void syntax_fstyle_line_handler(yed_event *event) {
     attrs = parse_attr_line(array_data(line->chars), NULL);
 
     if (attrs.flags != 0) {
-        array_traverse(event->line_attrs, ait) {
+        array_traverse(event->eline_attrs, ait) {
             *ait = known_active;
             yed_combine_attrs(ait, &attrs);
         }
