@@ -6,6 +6,7 @@ static void unload(yed_plugin *self);
 
 static void fstyle(int n_args, char **args);
 static void fstyle_export(int n_args, char **args);
+static void fstyle_from(int n_args, char **args);
 
 static void maybe_change_ft(yed_buffer *buff);
 static void maybe_change_ft_event(yed_event *event);
@@ -14,7 +15,15 @@ static void syntax_fstyle_row_handler(yed_event *event);
 
 static yed_attrs parse_attr_line(char *line, int *scomp);
 
+static const char *scomp_names[] = {
+    "", /* NO_SCOMP */
+    #define __SCOMP(comp) #comp,
+    __STYLE_COMPONENTS
+    #undef __SCOMP
+};
+
 int yed_plugin_boot(yed_plugin *self) {
+    int                                          i;
     tree_it(yed_buffer_name_t, yed_buffer_ptr_t) bit;
     yed_event_handler                            buff_post_load_handler;
     yed_event_handler                            buff_pre_write_handler;
@@ -36,6 +45,11 @@ int yed_plugin_boot(yed_plugin *self) {
 
     yed_plugin_set_command(self, "fstyle",        fstyle);
     yed_plugin_set_command(self, "fstyle-export", fstyle_export);
+    yed_plugin_set_command(self, "fstyle-from",   fstyle_from);
+
+    yed_plugin_set_completion(self, "fstyle-compl-arg-0",        yed_get_completion("file"));
+    yed_plugin_set_completion(self, "fstyle-from-compl-arg-0",   yed_get_completion("style"));
+    yed_plugin_set_completion(self, "fstyle-from-compl-arg-1",   yed_get_completion("file"));
 
     buff_post_load_handler.kind = EVENT_BUFFER_POST_LOAD;
     buff_post_load_handler.fn   = maybe_change_ft_event;
@@ -174,7 +188,7 @@ static void fstyle_export(int n_args, char **args) {
     int         scomp;
 
     if (n_args != 0) {
-        yed_cerr("expected 0, but got %d", n_args);
+        yed_cerr("expected 0 arguments, but got %d", n_args);
         return;
     }
 
@@ -243,6 +257,120 @@ static void fstyle_export(int n_args, char **args) {
 
 out_free:;
     free(name);
+}
+
+static void fstyle_from(int n_args, char **args) {
+    yed_style *style;
+    char       buff[4096];
+    FILE      *f;
+    int        s;
+    int        i;
+    yed_attrs  attrs;
+
+    if (n_args < 1 || n_args > 2) {
+        yed_cerr("expected 1 or 2 arguments, but got %d", n_args);
+        return;
+    }
+
+    if ((style = yed_get_style(args[0])) == NULL) {
+        yed_cerr("unknown style '%s'", args[0]);
+        return;
+    }
+
+    if (n_args == 2) {
+        snprintf(buff, sizeof(buff), "%s", args[1]);
+    } else {
+        snprintf(buff, sizeof(buff), "%s.fstyle", args[0]);
+    }
+
+    if ((f = fopen(buff, "w")) == NULL) {
+        yed_cerr("unable to open file '%s' for writing", buff);
+        return;
+    }
+
+    fprintf(f, "# fstyle generated for '%s'\n", args[0]);
+
+    for (s = NO_SCOMP + 1; s < N_SCOMPS; s += 1) {
+        switch (s) {
+        case STYLE_white:
+        case STYLE_gray:
+        case STYLE_black:
+        case STYLE_red:
+        case STYLE_orange:
+        case STYLE_yellow:
+        case STYLE_lime:
+        case STYLE_green:
+        case STYLE_turquoise:
+        case STYLE_cyan:
+        case STYLE_blue:
+        case STYLE_purple:
+        case STYLE_magenta:
+        case STYLE_pink:
+            break;
+        default:
+
+            snprintf(buff, sizeof(buff), "%s", scomp_names[s]);
+            for (i = 0; i < strlen(buff); i += 1) {
+                if (buff[i] == '_') { buff[i] = '-'; }
+            }
+            fprintf(f, "%-20s ", buff);
+
+            attrs = yed_get_style_scomp(style, s);
+
+            if (ATTR_FG_KIND(attrs.flags)) {
+                fprintf(f, "fg ");
+                switch (ATTR_FG_KIND(attrs.flags)) {
+                    case ATTR_KIND_16:
+                        fprintf(f, "!%u", attrs.fg - ATTR_16_BLACK);
+                        if (attrs.flags & ATTR_16_LIGHT_FG) {
+                            fprintf(f, "  16-light-fg");
+                        }
+                        break;
+                    case ATTR_KIND_256:
+                        fprintf(f, "@%u", attrs.fg);
+                        break;
+                    case ATTR_KIND_RGB:
+                        fprintf(f, "%x", attrs.fg);
+                        break;
+                }
+                fprintf(f, "  ");
+            }
+
+            if (ATTR_BG_KIND(attrs.flags)) {
+                fprintf(f, "bg ");
+                switch (ATTR_BG_KIND(attrs.flags)) {
+                    case ATTR_KIND_16:
+                        fprintf(f, "!%u", attrs.bg - ATTR_16_BLACK);
+                        if (attrs.flags & ATTR_16_LIGHT_BG) {
+                            fprintf(f, "  16-light-bg");
+                        }
+                        break;
+                    case ATTR_KIND_256:
+                        fprintf(f, "@%u", attrs.bg);
+                        break;
+                    case ATTR_KIND_RGB:
+                        fprintf(f, "%x", attrs.bg);
+                        break;
+                }
+            }
+
+            if (attrs.flags & ATTR_INVERSE) {
+                fprintf(f, "  inverse");
+            }
+
+            if (attrs.flags & ATTR_BOLD) {
+                fprintf(f, "  bold");
+            }
+
+            if (attrs.flags & ATTR_UNDERLINE) {
+                fprintf(f, "  underline");
+            }
+
+            fprintf(f, "\n");
+        }
+    }
+
+    fclose(f);
 }
 
 static void maybe_change_ft(yed_buffer *buff) {
