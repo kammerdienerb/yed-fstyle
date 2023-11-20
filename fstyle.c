@@ -152,6 +152,7 @@ static void flags_str(int flags, char *buff) {
     strcat(buff, "0");
     if (flags & ATTR_INVERSE)     { strcat(buff, " | ATTR_INVERSE");     }
     if (flags & ATTR_BOLD)        { strcat(buff, " | ATTR_BOLD");        }
+    if (flags & ATTR_ITALIC)      { strcat(buff, " | ATTR_ITALIC");      }
     if (flags & ATTR_UNDERLINE)   { strcat(buff, " | ATTR_UNDERLINE");   }
     if (flags & ATTR_16_LIGHT_FG) { strcat(buff, " | ATTR_16_LIGHT_FG"); }
     if (flags & ATTR_16_LIGHT_BG) { strcat(buff, " | ATTR_16_LIGHT_BG"); }
@@ -360,6 +361,10 @@ static void fstyle_from(int n_args, char **args) {
 
             if (attrs.flags & ATTR_BOLD) {
                 fprintf(f, "  bold");
+            }
+
+            if (attrs.flags & ATTR_ITALIC) {
+                fprintf(f, "  italic");
             }
 
             if (attrs.flags & ATTR_UNDERLINE) {
